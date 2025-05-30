@@ -1,0 +1,41 @@
+spring:
+  application:
+    name: log-batch-processor
+  datasource:
+    url: jdbc:mariadb://localhost:3306/log-test
+    username: root
+    password: 1234
+    driver-class-name: org.mariadb.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: true
+    properties:
+      hibernate:
+#        generate_statistics: true # 통계 활성화
+        format_sql: true
+        jdbc:
+          batch_size: 100 # chunk 사이즈와 동일하게 처리
+        order_inserts: true # INSERT 순서 정렬 (배치 성능 향상에 도움)
+  batch: # 스프링 배치 설정
+    # 스프링 배치 수동 실행
+#    job:
+#      enabled: true
+#      names: accessLogProcessJob
+    jdbc:
+      initialize-schema: always # (개발 시 'always', 운영 시 'never' 또는 'create_if_not_exists')
+  kafka: # 카프카 컨슈머 (소비자) 설정
+    consumer:
+      bootstrap-servers: localhost:9092 # 카프카 브로커 주소 (producer와 동일)
+      group-id: batch-log-consumer-group  # 컨슈머 그룹 ID (이 그룹에 속한 컨슈머들이 토픽 메시지를 분산 처리)
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer # 키 역직렬화 클래스
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer # 값 역직렬화 클래스
+      properties: # 추가 컨슈머 속성
+        spring.json.value.default.type: com.example.model.AccessLog # JSON 역직렬화 시 어떤 클래스로 변환할지 명시 (필수!)
+        spring.json.trusted.packages: "com.example.model" # 신뢰할 수 있는 패키지 설정 (보안 이슈)
+server:
+  port: 8081
+
+#logging:
+#  level:
+#    org.mariadb.jdbc: TRACE
