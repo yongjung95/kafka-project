@@ -24,7 +24,7 @@ public class BatchScheduler {
     @Qualifier("accessLogProcessJob") // 실행할 Job 빈의 이름을 명시.
     private final Job accessLogProcessJob;
 
-    @Scheduled(cron = "0 */2 * * * ?")
+    @Scheduled(cron = "0 */1 * * * ?")
     public void runAccessLogJobEvery5Minutes() {
         try {
             log.info("매 2분 주기 accessLogProcessJob 실행 시작...");

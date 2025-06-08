@@ -5,6 +5,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.springframework.batch.core.*;
+import org.springframework.batch.core.configuration.annotation.JobScope;
+import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
@@ -12,6 +14,7 @@ import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.ItemReader;
 import org.springframework.batch.item.database.JdbcBatchItemWriter;
 import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder;
+import org.springframework.batch.item.kafka.KafkaItemReader;
 import org.springframework.batch.item.kafka.builder.KafkaItemReaderBuilder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -54,6 +57,7 @@ public class AccessLogBatchConfig {
 
     // --- Step 정의 ---
     @Bean
+//    @JobScope
     public Step accessLogStep() {
         log.info(">>>> accessLogStep started.");
         return new StepBuilder("accessLogStep", jobRepository) // Step의 이름은 "accessLogStep"
@@ -69,7 +73,8 @@ public class AccessLogBatchConfig {
 
     // --- ItemReader 정의 (Kafka에서 데이터 읽기) ---
     @Bean
-    public ItemReader<AccessLog> kafkaItemReader() {
+    @StepScope
+    public KafkaItemReader<String, AccessLog> kafkaItemReader() {
         log.info(">>>> KafkaItemReader created.");
         Properties props = new Properties(); // 카프카 컨슈머 관련 설정을 담을 객체
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers); // 카프카 서버 주소
@@ -78,17 +83,18 @@ public class AccessLogBatchConfig {
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.springframework.kafka.support.serializer.JsonDeserializer"); // 메시지 값 역직렬화 방법 (JSON)
         props.put("spring.json.value.default.type", defaultType); // JSON 값을 어떤 타입의 객체로 만들지 (AccessLog)
         props.put("spring.json.trusted.packages", trustedPackages); // 신뢰할 수 있는 패키지 (보안)
-//        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest"); // 오프셋 초기화 방지
-        props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "true");
-        // props.put(JsonDeserializer.FAIL_IF_UNKNOWN_PROPERTIES, "false"); // DTO에 없는 필드가 JSON에 있어도 에러 안 나게 하려면
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest"); // 그룹에 저장된 오프셋이 없을 때 어디서부터 읽을지 명확히 지정
+        props.put(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, 1000);
+        props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, true);
 
         return new KafkaItemReaderBuilder<String, AccessLog>() // KafkaItemReader를 만드는 빌더
                 .consumerProperties(props) // 위에서 설정한 컨슈머 속성들을 전달
                 .name("accessLogKafkaReader") // 이 Reader의 이름을 지정 (배치 메타데이터에 기록)
                 .topic("user-access-log") // 구독할 카프카 토픽 이름
-                .partitions(0) // Topic 의 partition 을 지정하며, 여러 partition 지정이 가능하다.
+                .partitions(0, 1, 2) // Topic 의 partition 을 지정하며, 여러 partition 지정이 가능하다. (현재 파티션이 3개로 나뉘어져 있기 때문에)
                 .partitionOffsets(new HashMap<>()) // KafkaItemReader 는 offset 을 지정하지 않으면 0번 offset 부터 읽기 때문에, 빈 맵을 넣어주면 마지막 offset 부터 데이터를 읽어온다.
-                .pollTimeout(Duration.ofSeconds(5L)) // 카프카에서 메시지를 기다리는 최대 시간
+                .pollTimeout(Duration.ofSeconds(5)) // 카프카에서 메시지를 기다리는 최대 시간
+                .saveState(false)
                 .build(); // ItemReader 생성!
     }
 

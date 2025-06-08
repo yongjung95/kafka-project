@@ -32,6 +32,14 @@ services: # 이 섹션 아래에 우리가 실행할 각 컨테이너(서비스)
       - kafka-data:/var/lib/kafka/data # `kafka-data`라는 이름의 도커 볼륨을 카프카 컨테이너 내부의 `/var/lib/kafka/data` 경로에 연결해. 이렇게 하면 컨테이너를 지워도 카프카의 데이터(메시지 로그 등)가 유실되지 않아.
     depends_on: # 의존성 정의: 이 서비스가 시작되기 전에 먼저 시작되어야 하는 서비스
       - zookeeper # 카프카는 주키퍼가 먼저 실행되어야 정상적으로 작동하므로 이렇게 설정해.
+  kafdrop:
+    image: obsidiandynamics/kafdrop:latest # Kafdrop 도커 이미지
+    depends_on:
+      - kafka # 카프카가 실행된 후에 실행되도록 설정
+    ports:
+      - "9000:9000" # 웹 브라우저로 접속할 포트 (외부 9000 -> 내부 9000)
+    environment:
+      KAFKA_BROKERCONNECT: "kafka:29092" # 접속할 카프카 서버 주소
 
 volumes: # 이 섹션에서 위에 `volumes:`에 사용된 이름을 가진 도커 볼륨들을 실제 물리적인 저장 공간과 연결되도록 정의해.
   kafka-data: # `kafka-data`라는 이름의 도커 볼륨을 생성.

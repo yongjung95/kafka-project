@@ -16,6 +16,7 @@ public class LogApiController {
 
     @GetMapping("/generate-random")
     public String generateRandomLog() {
+
         AccessLog randomLog = AccessLog.createRandomLog();
         logProducerService.sendLog(randomLog); // 생성된 로그를 카프카로 전송
         log.info("Log : {}", randomLog);
